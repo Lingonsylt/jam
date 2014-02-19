@@ -18,13 +18,13 @@ class Spritesheet:
         self.img = pyglet.resource.image(img_file)
         self.size = sprite_size
 
-    def getSprite(self, n, x, y):
+    def getSprite(self, n, x, y, batch):
         region = self.img.get_region((n * self.size) % self.img.width,
                                      (self.img.height - self.size) - ((n * self.size) // self.img.width) * self.size,
                                      self.size, self.size)
         region.anchor_x = region.width / 2
         region.anchor_y = region.height / 2
-        return pyglet.sprite.Sprite(region, x, y)
+        return pyglet.sprite.Sprite(region, x, y, batch=batch)
 
 class Camera:
     def __init__(self, x, y):
@@ -60,19 +60,21 @@ grass_tiles = Spritesheet("gras_tiles.png", 32)
 c = Camera(0, 0)
 
 tiles = []
-rows = 10
-cols = 10
+rows = 30
+cols = 30
+tiles_batch = pyglet.graphics.Batch()
 for rownum in range(0, rows):
     row = []
     for colnum in range(0, cols):
-        tile = grass_tiles.getSprite(random.randint(0, 8), colnum * grass_tiles.size - (cols / 2) * grass_tiles.size, rownum * grass_tiles.size - (rows / 2) * grass_tiles.size)
-        c.addDrawable(tile)
+        tile = grass_tiles.getSprite(random.randint(0, 8), colnum * grass_tiles.size - (cols / 2) * grass_tiles.size,
+                                     rownum * grass_tiles.size - (rows / 2) * grass_tiles.size, tiles_batch)
+        #c.addDrawable(tile)
         row.append(tile)
     tiles.append(row)
+c.addDrawable(tiles_batch)
 
 p = Player(0, 0)
 c.addDrawable(p)
-
 
 @window.event
 def on_draw():
