@@ -1,0 +1,7 @@
+*.pyc
+*.dll
+*.exe
+*.zip
+*.iml
+.idea/
+dist/
