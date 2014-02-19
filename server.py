@@ -23,6 +23,9 @@ def recv(sock):
 
 
 def listen():
+    """
+    Echo all messages back to client
+    """
     addr = ("localhost", 6666)
     print "Listening to", addr
     server = socket(AF_INET, SOCK_STREAM)
