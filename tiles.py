@@ -6,7 +6,9 @@ from pyglet.gl import gl
 from pyglet.gl import *
 from ctypes import pointer
 
+DYNAMIC_RENDERING = True
 window = pyglet.window.Window()
+fps_display = pyglet.clock.ClockDisplay(color=(.5, .8, .5, .5))
 
 arrows = {"up": False, "down": False, "left": False, "right": False}
 
@@ -38,6 +40,14 @@ class Spritesheet:
         region.anchor_x = region.width / 2
         region.anchor_y = region.height / 2
         return pyglet.sprite.Sprite(region, x, y, batch=batch)
+
+class Tile:
+    size = 32
+    def __init__(self, x, y, createSpriteCallback):
+        self.x = x
+        self.y = y
+        self.sprite = None
+        self.createSpriteCallback = createSpriteCallback
 
 class Camera:
     def __init__(self, x, y):
@@ -110,7 +120,7 @@ class Camera:
         # Create a viewport for rendering into the light framebuffer/texture and clear it
         glPushAttrib(GL_VIEWPORT_BIT | GL_ENABLE_BIT)
         glViewport(0, 0, self.w, self.h)
-        glClearColor(0.05, 0.05, 0.05, 0)
+        glClearColor(0.03, 0.03, 0.03, 0)
         glClear(GL_COLOR_BUFFER_BIT)
 
         # Draw the actual lighting
@@ -195,15 +205,20 @@ grass_tiles = Spritesheet("gras_tiles.png", 32)
 c = Camera(0, 0)
 
 tiles = []
-rows = 30
-cols = 30
+rows = 200
+cols = 200
 tiles_batch = pyglet.graphics.Batch()
 for rownum in range(0, rows):
     row = []
     for colnum in range(0, cols):
-        tile = grass_tiles.getSprite(random.randint(0, 8), colnum * grass_tiles.size - (cols / 2) * grass_tiles.size,
-                                     rownum * grass_tiles.size - (rows / 2) * grass_tiles.size, tiles_batch)
-        row.append(tile)
+        def tileClosure(tile_type, x, y):
+            return lambda: grass_tiles.getSprite(tile_type, x, y, tiles_batch)
+        x = colnum * grass_tiles.size - (cols / 2) * grass_tiles.size
+        y = rownum * grass_tiles.size - (rows / 2) * grass_tiles.size
+        row.append(Tile(colnum, rownum, tileClosure(random.randint(0, 8), x, y)))
+        if not DYNAMIC_RENDERING:
+            row[colnum].sprite = row[colnum].createSpriteCallback()
+
     tiles.append(row)
 c.addDrawable(tiles_batch)
 
@@ -220,6 +235,7 @@ def on_draw():
     c.x = p.x
     c.y = p.y
     c.draw()
+    fps_display.draw()
 
 @window.event
 def on_key_press(symbol, modifiers):
@@ -243,6 +259,8 @@ def on_key_release(symbol, modifiers):
     elif symbol == key.D:
         arrows["right"] = False
 
+active_tiles = {}
+
 def update(dt):  # Körs 120 gånger per skund, schemaläggs med pyglet.clock.schedule_interval() under denna funktion
     # Flytta katten kitten.speed gånger delta time i de riktningar som knapparna är nedtryckta
     if arrows["up"]:
@@ -259,5 +277,30 @@ def update(dt):  # Körs 120 gånger per skund, schemaläggs med pyglet.clock.sc
     flashlight_right.x = p.x + 60
     flashlight_right.y = p.y + 30
 
-pyglet.clock.schedule_interval(update, 1/120.0)  # Schemalägg funktionen "update" att köras 120 gånger i sekunden
+    if DYNAMIC_RENDERING:
+        window_index_width = int(window.width // Tile.size)
+        window_index_height = int(window.height // Tile.size)
+        player_index_x = int(p.x // Tile.size)
+        player_index_y = int(p.y // Tile.size)
+        left_index = max(cols // 2 + player_index_x - window_index_width // 2, 0)
+        right_index = min(cols // 2 + player_index_x + window_index_width // 2 + 2, cols - 1)
+        bottom_index = max(rows // 2 + player_index_y - window_index_height // 2, 0)
+        top_index = min(rows // 2 + player_index_y + window_index_height // 2 + 2, rows - 1)
+
+        for x, y in active_tiles.keys():
+            if x < left_index or x > right_index or y < bottom_index or y > top_index:
+                tile = active_tiles[(x, y)]
+                if tile.sprite:
+                    tile.sprite.delete()
+                    tile.sprite = None
+                del active_tiles[(x, y)]
+
+        for colnum in range(left_index, right_index):
+            for rownum in range(bottom_index, top_index):
+                tile = tiles[rownum][colnum]
+                if tile.sprite is None:
+                    tile.sprite = tile.createSpriteCallback()
+                    active_tiles[(tile.x, tile.y)] = tile
+
+pyglet.clock.schedule_interval(update, 1 / 30.0)   # Schemalägg funktionen "update" att köras 120 gånger i sekunden
 pyglet.app.run()                                 # Let the games begin!
