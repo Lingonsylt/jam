@@ -18,7 +18,7 @@ flashlight_jpg = pyglet.resource.image('flashlight2.jpg')
 flashlight_jpg.anchor_x = flashlight_jpg.width / 2
 flashlight_jpg.anchor_y = flashlight_jpg.height / 2
 
-flashlight_left = pyglet.sprite.Sprite(flashlight_jpg)
+flashlight_left = pyglet.sprite.Sprite(flashlight_jpg, blend_src=GL_ONE, blend_dest=GL_ONE)
 flashlight_left.rotation = -10
 flashlight_left.scale = 2
 
@@ -110,6 +110,7 @@ class Camera:
         # Create a viewport for rendering into the light framebuffer/texture and clear it
         glPushAttrib(GL_VIEWPORT_BIT | GL_ENABLE_BIT)
         glViewport(0, 0, self.w, self.h)
+        glClearColor(0.05, 0.05, 0.05, 0)
         glClear(GL_COLOR_BUFFER_BIT)
 
         # Draw the actual lighting
@@ -123,8 +124,6 @@ class Camera:
 
         # Enable blending
         glEnable(GL_BLEND)
-        glBlendFunc(GL_ONE, GL_SRC_COLOR)
-        glBlendEquation(GL_FUNC_ADD)
 
         # Activate the light texture
         glBindTexture(GL_TEXTURE_2D, self.light_texture)
@@ -137,7 +136,22 @@ class Camera:
         glLoadIdentity()
 
         # Draw a rectangle covering the screen, containing the light texture
-        # Will apply blending
+        # Blend the background with the light color
+        glBlendFunc(GL_ZERO, GL_SRC_COLOR)
+        glBlendEquation(GL_FUNC_ADD)
+
+        glBegin(GL_QUADS)
+        glTexCoord2f(0, 0); glVertex2f(0, 0)
+        glTexCoord2f(0, 1); glVertex2f(0, self.h)
+        glTexCoord2f(1, 1); glVertex2f(self.w, self.h)
+        glTexCoord2f(1, 0); glVertex2f(self.w, 0)
+        glEnd()
+
+        # Draw a rectangle covering the screen, containing the light texture
+        # Blend add the light color to the background
+        glBlendFunc(GL_ONE, GL_ONE)
+        glBlendEquation(GL_FUNC_ADD)
+        glColor4f(0.5, 0.5, 0.5, 1)
         glBegin(GL_QUADS)
         glTexCoord2f(0, 0); glVertex2f(0, 0)
         glTexCoord2f(0, 1); glVertex2f(0, self.h)
