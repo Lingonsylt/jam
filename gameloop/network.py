@@ -1,7 +1,7 @@
 import json
 import socket
 import sys
-import entities
+from _socket import AF_INET, SOCK_STREAM
 
 def recv(sock):
     """
@@ -13,7 +13,7 @@ def recv(sock):
         length = int(sock.recv(4))
         msg = ''
         while len(msg) < length:
-            chunk = sock.recv(length-len(msg))
+            chunk = sock.recv(length - len(msg))
             if chunk == '':
                 raise RuntimeError("socket connection broken")
             msg = msg + chunk
@@ -121,24 +121,33 @@ class ServerCommand:
         obj = json.loads(data)
         return server_commands[obj['type']].deserialize(data)  # Decodes json a second time. Might be slow
 
-class PlayerStateCommand(ServerCommand):
-    def __init__(self, player):
-        self.player = player
+class ClientNetworkState:
+    def __init__(self, gamestate):
+        self.gamestate = gamestate
+        self.createNewPacket(0, 0)
 
-    def execute(self, gamestate):
-        player = gamestate.players[self.player.id]
-        player.x = self.player.x
-        player.y = self.player.y
-        player.rot = self.player.rot
+    def connect(self):
+        addr = ("localhost", 6666)
+        self.sock = socket.socket(AF_INET, SOCK_STREAM)
+        self.sock.connect(addr)
+        self.sock.setblocking(0)
 
-    def serialize(self):
-        return json.dumps({'type': self.__class__.__name__, 'player': self.player.serialize()})
+    def createNewPacket(self, last_mouse_x, last_mouse_y):
+        self.packet = Packet()
+        self.keyboard_state = KeyboardStateCommand({})
+        self.mouse_state = MouseStateCommand(last_mouse_x, last_mouse_y)
+        self.packet.addCommand(self.keyboard_state)
+        self.packet.addCommand(self.mouse_state)
 
-    @classmethod
-    def deserialize(cls, data):
-        data = json.loads(data)
-        t = data['type']
-        del data['type']
-        data['player'] = entities.Player.deserialize(data['player'])
-        return server_commands[t](**data)
-server_commands[PlayerStateCommand.__name__] = PlayerStateCommand
+    def send(self):
+        msg = self.packet.serialize()
+        msg = "%04d%s" % (len(msg), msg)
+        self.sock.send(msg)
+        self.createNewPacket(self.mouse_state.x, self.mouse_state.y)
+
+    def recv(self):
+        msg = recv(self.sock)
+        if msg is not None:
+            packet = ServerPacket.deserialize(msg)
+            for command in packet.commands:
+                command.execute(self.gamestate)

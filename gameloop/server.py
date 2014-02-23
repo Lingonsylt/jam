@@ -5,14 +5,13 @@ from socket import socket
 import threading
 import time
 import sys
-import gamestate
 import network
 import pyglet
 
 class Server:
-    def __init__(self):
+    def __init__(self, gamestate_cls):
         self.inputstate = {'keys': {"up": False, "down": False, "left": False, "right": False}, 'mouse': {'x': 0, 'y': 0}}
-        self.gamestate = gamestate.Gamestate(inputstate=self.inputstate)
+        self.gamestate = gamestate_cls(inputstate=self.inputstate)
         self.clients = []
 
     def recv(self, sock):
@@ -51,7 +50,7 @@ class Server:
                 packet = network.ClientPacket.deserialize(msg)
                 for command in packet.commands:
                     command.execute(self.inputstate, lambda x: sys.stdout.write("%s\n" % x))
-                pprint.pprint(self.inputstate)
+                #pprint.pprint(self.inputstate)
 
     def startInThread(self):
         t = threading.Thread(target=self.listen)
