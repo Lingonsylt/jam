@@ -38,17 +38,18 @@ class Packet:
     def deserialize(cls, data):
         raise NotImplementedError("Use subclass ClientPacket och ServerPacket")
 
-class ClientPacket(Packet):
-    @classmethod
-    def deserialize(cls, data):
-        return cls([ClientCommand.deserialize(command) for command in json.loads(data)])
+class CommandRepository(object):
+    deserializer = None
 
-class ServerPacket(Packet):
-    @classmethod
-    def deserialize(cls, data):
-        return cls([ServerCommand.deserialize(command) for command in json.loads(data)])
+    def __init__(self):
+        self.commands = {}
 
-client_commands = {}
+    def addCommand(self, command_cls):
+        self.commands[command_cls.__name__] = command_cls
+
+    def deserialize(self, data):
+        return Packet([self.deserializer.deserialize(self.commands, command) for command in json.loads(data)])
+
 class ClientCommand:
     def execute(self, inputstate, onPress):
         pass
@@ -57,12 +58,11 @@ class ClientCommand:
         pass
 
     @classmethod
-    def deserialize(cls, data):
+    def deserialize(cls, client_commands, data):
         data = json.loads(data)
         t = data['type']
         del data['type']
         return client_commands[t](**data)
-
 
 class KeyboardStateCommand(ClientCommand):
     def __init__(self, keys):
@@ -73,7 +73,6 @@ class KeyboardStateCommand(ClientCommand):
 
     def serialize(self):
         return json.dumps({'type': self.__class__.__name__, 'keys': self.keys})
-client_commands[KeyboardStateCommand.__name__] = KeyboardStateCommand
 
 class InputPressCommand(ClientCommand):
     def __init__(self, buttons):
@@ -85,7 +84,6 @@ class InputPressCommand(ClientCommand):
 
     def serialize(self):
         return json.dumps({'type': self.__class__.__name__, 'buttons' : self.buttons})
-client_commands[InputPressCommand.__name__] = InputPressCommand
 
 class MouseStateCommand(ClientCommand):
     def __init__(self, x, y):
@@ -98,7 +96,6 @@ class MouseStateCommand(ClientCommand):
 
     def serialize(self):
         return json.dumps({'type': self.__class__.__name__, 'x': self.x, 'y': self.y})
-client_commands[MouseStateCommand.__name__] = MouseStateCommand
 
 class KillServerCommand(ClientCommand):
     def execute(self, inputstate, onPress):
@@ -106,9 +103,18 @@ class KillServerCommand(ClientCommand):
 
     def serialize(self):
         return json.dumps({'type': self.__class__.__name__})
-client_commands[KillServerCommand.__name__] = KillServerCommand
 
-server_commands = {}
+class ClientCommandRepository(CommandRepository):
+    deserializer = ClientCommand
+
+    def __init__(self):
+        super(ClientCommandRepository, self).__init__()
+        self.addCommand(KeyboardStateCommand)
+        self.addCommand(InputPressCommand)
+        self.addCommand(MouseStateCommand)
+        self.addCommand(KeyboardStateCommand)
+        self.addCommand(KillServerCommand)
+
 class ServerCommand:
     def execute(self, gamestate):
         pass
@@ -117,13 +123,17 @@ class ServerCommand:
         pass
 
     @classmethod
-    def deserialize(cls, data):
+    def deserialize(cls, server_commands, data):
         obj = json.loads(data)
-        return server_commands[obj['type']].deserialize(data)  # Decodes json a second time. Might be slow
+        return server_commands[obj['type']].deserialize(server_commands, data)  # Decodes json a second time. Might be slow
+
+class ServerCommandRepository(CommandRepository):
+    deserializer = ServerCommand
 
 class ClientNetworkState:
-    def __init__(self, gamestate):
+    def __init__(self, gamestate, commandrepo):
         self.gamestate = gamestate
+        self.commandrepo = commandrepo
         self.createNewPacket(0, 0)
 
     def connect(self):
@@ -148,6 +158,6 @@ class ClientNetworkState:
     def recv(self):
         msg = recv(self.sock)
         if msg is not None:
-            packet = ServerPacket.deserialize(msg)
+            packet = self.commandrepo.deserialize(msg)
             for command in packet.commands:
                 command.execute(self.gamestate)

@@ -47,7 +47,7 @@ class Server:
         for conn in self.clients:
             msg = self.recv(conn)
             if msg is not None:
-                packet = network.ClientPacket.deserialize(msg)
+                packet = self.gamestate.clientcommandrepo.deserialize(msg)
                 for command in packet.commands:
                     command.execute(self.inputstate, lambda x: sys.stdout.write("%s\n" % x))
                 #pprint.pprint(self.inputstate)

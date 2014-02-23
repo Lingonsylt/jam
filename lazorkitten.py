@@ -1,10 +1,10 @@
 # encoding: utf-8
 import json
 import pyglet
-import client
-import network
-import entity
-import gamestate
+from gameloop import client
+from gameloop import network
+from gameloop import entity
+from gameloop import gamestate
 
 class Lazorkitten(gamestate.Gamestate):
     def __init__(self, inputstate=None, camera=None):
@@ -15,6 +15,8 @@ class Lazorkitten(gamestate.Gamestate):
         self.kittens = {
             kitten.id: kitten
         }
+
+        self.servercommandrepo.addCommand(KittenStateCommand)
 
     def update(self, dt, packet):
         for kitten in self.kittens.values():
@@ -85,13 +87,12 @@ class KittenStateCommand(network.ServerCommand):
         return json.dumps({'type': self.__class__.__name__, 'kitten': self.kitten.serialize()})
 
     @classmethod
-    def deserialize(cls, data):
+    def deserialize(cls, commands, data):
         data = json.loads(data)
         t = data['type']
         del data['type']
         data['kitten'] = Kitten.deserialize(data['kitten'])
-        return network.server_commands[t](**data)
-network.server_commands[KittenStateCommand.__name__] = KittenStateCommand
+        return commands[t](**data)
 
 if __name__ == '__main__':
     c = client.Client(Lazorkitten)
