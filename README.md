@@ -115,7 +115,7 @@ Network client input on server
 from gameloop.gamestate import Gamestate
 class Lazorkitten(Gamestate):
     def update(self, dt, packet):
-        self.inputstate == {'keys':
+        self.clients[self.clients.keys()[0]].inputstate == {'keys':
                                 {"up": False,
                                 "down": False,
                                 "left": False,
