@@ -2,10 +2,7 @@
 import json
 import math
 import pyglet
-from gameloop import client
-from gameloop import network
-from gameloop import entity
-from gameloop import gamestate
+from gameloop import client, render, network, entity, gamestate
 
 class Lazorkitten(gamestate.Gamestate):
     width = 800
@@ -88,7 +85,7 @@ class Kitten(entity.Entity):
             kitten_sprite.scale = 0.3
             return kitten_sprite
         self.animations = {
-            'default': entity.Animation(createSprite)
+            'default': render.Animation(createSprite)
         }
         self.id = player_id
 
@@ -127,7 +124,7 @@ class Lazor(entity.Entity):
             return lazor_sprite
 
         self.animations = {
-            'default': entity.Animation(createSprite)
+            'default': render.Animation(createSprite)
         }
         self.id = lazor_id
 

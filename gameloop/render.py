@@ -25,3 +25,21 @@ class Camera:
 
     def positionToAbsolute(self, x, y):
         return x-self.x - self.window_width / 2, y-self.y - self.window_height / 2
+
+class Animation:
+    def __init__(self, createSprite):
+        self.createSprite = createSprite
+        self.sprite = None
+
+    def draw(self, x, y, rot):
+        if self.sprite is None:
+            self.sprite = self.createSprite()
+        self.sprite.x = x
+        self.sprite.y = y
+        self.sprite.rotation = rot
+        self.sprite.draw()
+
+    def destroy(self):
+        if self.sprite is not None:
+            self.sprite.delete()
+            self.sprite = None
