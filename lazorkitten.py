@@ -7,39 +7,49 @@ from gameloop import entity
 from gameloop import gamestate
 
 class Lazorkitten(gamestate.Gamestate):
-    def __init__(self, inputstate=None, camera=None):
-        super(Lazorkitten, self).__init__(inputstate, camera)
-
-        kitten = Kitten(0, 0, 0, 0)
-        self.camera.addDrawable(kitten)
-        self.kittens = {
-            kitten.id: kitten
-        }
+    def __init__(self, clients=None, inputstate=None, camera=None):
+        super(Lazorkitten, self).__init__(clients, inputstate, camera)
+        self.kittens = {}
 
         self.servercommandrepo.addCommand(KittenStateCommand)
+        self.servercommandrepo.addCommand(CreateKittenCommand)
+
+    def onNewClient(self, client, packet, client_packet):
+        for kitten in self.kittens.values():
+            client_packet.addCommand(CreateKittenCommand(kitten))
+
+        kitten = Kitten(client.id, 0, 0, 0)
+        self.kittens[kitten.id] = kitten
+        packet.addCommand(CreateKittenCommand(kitten))
 
     def update(self, dt, packet):
         for kitten in self.kittens.values():
-            kitten.update(dt, self.inputstate)
+            kitten.update(dt, self.clients[kitten.id].inputstate)
 
         for kitten in self.kittens.values():
             packet.addCommand(KittenStateCommand(kitten))
 
-kitten_png = pyglet.resource.image('kitten.png')
-kitten_png.anchor_x = kitten_png.width / 2
-kitten_png.anchor_y = kitten_png.height / 2
 class Kitten(entity.Entity):
     speed = 500
 
     def __init__(self, player_id, x, y, rot, anim_name='default'):
-        kitten_sprite = pyglet.sprite.Sprite(kitten_png)
-        kitten_sprite.scale = 0.3
+        def createSprite():
+            kitten_png = pyglet.resource.image('kitten.png')
+            kitten_png.anchor_x = kitten_png.width / 2
+            kitten_png.anchor_y = kitten_png.height / 2
+
+            kitten_sprite = pyglet.sprite.Sprite(kitten_png)
+            kitten_sprite.scale = 0.3
+            return kitten_sprite
         self.animations = {
-            'default': kitten_sprite
+            'default': entity.Animation(createSprite)
         }
         self.id = player_id
 
         super(Kitten, self).__init__(x, y, rot, anim_name)
+
+    def __unicode__(self):
+        return u"%s(%s, %s, %s, %s, ...)" % (self.__class__.__name__, self.id, self.x, self.y, self.rot)
 
     def update(self, dt, inputstate):
         if inputstate['keys']["up"]:
@@ -82,6 +92,26 @@ class KittenStateCommand(network.ServerCommand):
         kitten.x = self.kitten.x
         kitten.y = self.kitten.y
         kitten.rot = self.kitten.rot
+
+    def serialize(self):
+        return json.dumps({'type': self.__class__.__name__, 'kitten': self.kitten.serialize()})
+
+    @classmethod
+    def deserialize(cls, commands, data):
+        data = json.loads(data)
+        t = data['type']
+        del data['type']
+        data['kitten'] = Kitten.deserialize(data['kitten'])
+        return commands[t](**data)
+
+class CreateKittenCommand(network.ServerCommand):
+    def __init__(self, kitten):
+        self.kitten = kitten
+
+    def execute(self, gamestate):
+        gamestate.kittens[self.kitten.id] = self.kitten
+        gamestate.camera.addDrawable(self.kitten)
+        print "Created kitten with id ", self.kitten.id
 
     def serialize(self):
         return json.dumps({'type': self.__class__.__name__, 'kitten': self.kitten.serialize()})

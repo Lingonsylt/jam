@@ -6,8 +6,9 @@ class StubCamera:
         pass
 
 class Gamestate(object):
-    def __init__(self, inputstate = None, camera = None):
+    def __init__(self, clients=None,inputstate=None, camera=None):
         self.camera = camera if camera else StubCamera()
+        self.clients = clients
         self.inputstate = inputstate
         self.clientcommandrepo = network.ClientCommandRepository()
         self.servercommandrepo = network.ServerCommandRepository()

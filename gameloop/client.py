@@ -2,7 +2,6 @@
 import network
 import render
 import server
-import gamestate
 
 import pyglet
 from pyglet.window import key
@@ -14,10 +13,15 @@ class Client(pyglet.window.Window):
         self.camera = render.Camera(0, 0)
         self.gamestate = gamestate_cls(camera=self.camera)
         self.netstate = network.ClientNetworkState(self.gamestate, self.gamestate.servercommandrepo)
-        if local_server:
-            s = server.Server(gamestate_cls)
-            s.startInThread()
-        self.netstate.connect()
+
+        if not self.netstate.connect():
+            if local_server:
+                s = server.Server(gamestate_cls)
+                s.startInThread()
+                if not self.netstate.connect():
+                    raise Exception("Connection failed!")
+            else:
+                raise Exception("Connection failed!")
 
     def on_draw(self):
         self.clear()

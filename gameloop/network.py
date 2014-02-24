@@ -24,6 +24,15 @@ def recv(sock):
             raise
         return None
 
+def accept(sock):
+    try:
+        return sock.accept()
+    except socket.error, e:
+        err = e.args[0]
+        if err != socket.errno.EWOULDBLOCK:
+            raise
+        return None, None
+
 class Packet:
     def __init__(self, commands = None):
         self.commands = [] if commands is None else commands
@@ -139,8 +148,16 @@ class ClientNetworkState:
     def connect(self):
         addr = ("localhost", 6666)
         self.sock = socket.socket(AF_INET, SOCK_STREAM)
-        self.sock.connect(addr)
+        try:
+            self.sock.connect(addr)
+        except socket.error, e:
+            err = e.args[0]
+            if err != socket.errno.ECONNREFUSED:
+                raise
+            return False
+
         self.sock.setblocking(0)
+        return True
 
     def createNewPacket(self, last_mouse_x, last_mouse_y):
         self.packet = Packet()
@@ -156,8 +173,10 @@ class ClientNetworkState:
         self.createNewPacket(self.mouse_state.x, self.mouse_state.y)
 
     def recv(self):
-        msg = recv(self.sock)
-        if msg is not None:
-            packet = self.commandrepo.deserialize(msg)
-            for command in packet.commands:
-                command.execute(self.gamestate)
+        msg = True
+        while msg:
+            msg = recv(self.sock)
+            if msg is not None:
+                packet = self.commandrepo.deserialize(msg)
+                for command in packet.commands:
+                    command.execute(self.gamestate)

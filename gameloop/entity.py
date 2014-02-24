@@ -1,5 +1,18 @@
 import json
 
+class Animation:
+    def __init__(self, createSprite):
+        self.createSprite = createSprite
+        self.sprite = None
+
+    def draw(self, x, y, rot):
+        if self.sprite is None:
+            self.sprite = self.createSprite()
+        self.sprite.x = x
+        self.sprite.y = y
+        self.sprite.rot = rot
+        self.sprite.draw()
+
 class Entity(object):
     animations = {}
     def __init__(self, x, y, rot, anim_name='default'):
@@ -8,6 +21,9 @@ class Entity(object):
         self.rot = rot
         self.anim_name = anim_name
         self.anim = self.animations[self.anim_name]
+
+    def __unicode__(self):
+        return u"%s(%s, %s, %s, ...)" % (self.__class__.__name__, self.x, self.y, self.rot)
 
     def update(self, dt, inputstate):
         pass
@@ -23,7 +39,4 @@ class Entity(object):
         return cls(**json.loads(data))
 
     def draw(self):
-        self.anim.x = self.x
-        self.anim.y = self.y
-        self.anim.rot = self.rot
-        self.anim.draw()
+        self.anim.draw(self.x, self.y, self.rot)
