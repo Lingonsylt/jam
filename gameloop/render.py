@@ -43,3 +43,16 @@ class Animation:
         if self.sprite is not None:
             self.sprite.delete()
             self.sprite = None
+
+class Spritesheet:
+    def __init__(self, img_file, sprite_size):
+        self.img = pyglet.resource.image(img_file)
+        self.size = sprite_size
+
+    def getSprite(self, n, x, y, batch):
+        region = self.img.get_region((n * self.size) % self.img.width,
+                                     (self.img.height - self.size) - ((n * self.size) // self.img.width) * self.size,
+                                     self.size, self.size)
+        region.anchor_x = region.width / 2
+        region.anchor_y = region.height / 2
+        return pyglet.sprite.Sprite(region, x, y, batch=batch)
