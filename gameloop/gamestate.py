@@ -6,7 +6,10 @@ class StubCamera:
         pass
 
 class Gamestate(object):
-    def __init__(self, clients=None,inputstate=None, camera=None):
+    width = 640
+    height = 480
+
+    def __init__(self, clients=None, inputstate=None, camera=None):
         self.camera = camera if camera else StubCamera()
         self.clients = clients
         self.inputstate = inputstate

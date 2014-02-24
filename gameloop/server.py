@@ -11,7 +11,8 @@ class Client:
     def __init__(self, client_id, conn):
         self.id = client_id
         self.conn = conn
-        self.inputstate = {'keys': {"up": False, "down": False, "left": False, "right": False}, 'mouse': {'x': 0, 'y': 0}}
+        self.inputstate = {'keys': {"up": False, "down": False, "left": False, "right": False},
+                           'mouse': {'x': 0, 'y': 0}, 'presses': [], 'clicks': []}
 
 class Server:
     def __init__(self, gamestate_cls):
@@ -31,6 +32,8 @@ class Server:
         serialized_packet = packet.serialize()
         for client in self.clients.values():
             self.send(client.conn, serialized_packet)
+            client.inputstate['presses'] = []
+            client.inputstate['clicks'] = []
 
     def send(self, conn, msg):
         msg = "%04d%s" % (len(msg), msg)
@@ -63,7 +66,6 @@ class Server:
 
         pyglet.clock.schedule_interval(self.update, 1 / 30.0)
 
-
     def read(self):
         for client in self.clients.values():
             msg = True
@@ -72,7 +74,7 @@ class Server:
                 if msg is not None:
                     packet = self.gamestate.clientcommandrepo.deserialize(msg)
                     for command in packet.commands:
-                        command.execute(client.inputstate, lambda x: sys.stdout.write("%s\n" % x))
+                        command.execute(client.inputstate)
 
 
     def startInThread(self):

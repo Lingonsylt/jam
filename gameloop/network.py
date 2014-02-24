@@ -60,7 +60,7 @@ class CommandRepository(object):
         return Packet([self.deserializer.deserialize(self.commands, command) for command in json.loads(data)])
 
 class ClientCommand:
-    def execute(self, inputstate, onPress):
+    def execute(self, inputstate):
         pass
 
     def serialize(self):
@@ -77,7 +77,7 @@ class KeyboardStateCommand(ClientCommand):
     def __init__(self, keys):
         self.keys = keys
 
-    def execute(self, inputstate, onPress):
+    def execute(self, inputstate):
         inputstate['keys'].update(self.keys)
 
     def serialize(self):
@@ -87,19 +87,31 @@ class InputPressCommand(ClientCommand):
     def __init__(self, buttons):
         self.buttons = buttons
 
-    def execute(self, inputstate, onPress):
+    def execute(self, inputstate):
         for key in self.buttons:
-            onPress(key)
+            inputstate['pressed'].append(key)
 
     def serialize(self):
-        return json.dumps({'type': self.__class__.__name__, 'buttons' : self.buttons})
+        return json.dumps({'type': self.__class__.__name__, 'buttons': self.buttons})
+
+class MouseClickCommand(ClientCommand):
+    def __init__(self, button, x, y):
+        self.button = button
+        self.x = x
+        self.y = y
+
+    def execute(self, inputstate):
+        inputstate['clicks'].append(self)
+
+    def serialize(self):
+        return json.dumps({'type': self.__class__.__name__, 'button': self.button, 'x': self.x, 'y': self.y})
 
 class MouseStateCommand(ClientCommand):
     def __init__(self, x, y):
         self.x = x
         self.y = y
 
-    def execute(self, inputstate, onPress):
+    def execute(self, inputstate):
         inputstate['mouse']['x'] = self.x
         inputstate['mouse']['y'] = self.y
 
@@ -107,7 +119,7 @@ class MouseStateCommand(ClientCommand):
         return json.dumps({'type': self.__class__.__name__, 'x': self.x, 'y': self.y})
 
 class KillServerCommand(ClientCommand):
-    def execute(self, inputstate, onPress):
+    def execute(self, inputstate):
         sys.exit(0)
 
     def serialize(self):
@@ -122,6 +134,7 @@ class ClientCommandRepository(CommandRepository):
         self.addCommand(InputPressCommand)
         self.addCommand(MouseStateCommand)
         self.addCommand(KeyboardStateCommand)
+        self.addCommand(MouseClickCommand)
         self.addCommand(KillServerCommand)
 
 class ServerCommand:

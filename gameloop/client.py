@@ -9,6 +9,7 @@ from pyglet.window import key
 class Client(pyglet.window.Window):
     def __init__(self, gamestate_cls, local_server=True):
         super(Client, self).__init__()
+        self.set_size(gamestate_cls.width, gamestate_cls.height)
         self.direction_keys = {"up": False, "down": False, "left": False, "right": False}
         self.camera = render.Camera(0, 0)
         self.gamestate = gamestate_cls(camera=self.camera)
@@ -28,9 +29,10 @@ class Client(pyglet.window.Window):
         self.camera.draw(self.width, self.height)
 
     def on_mouse_press(self, x, y, button, modifiers):
-        self.netstate.packet.addCommand(network.InputPressCommand(['MOUSE_DOWN']))
+        self.netstate.packet.addCommand(network.MouseClickCommand(button, x, y))
 
     def on_mouse_motion(self, x, y, dx, dy):
+        x, y = self.gamestate.camera.positionToAbsolute(x, y)
         self.netstate.mouse_state.x = x
         self.netstate.mouse_state.y = y
 
