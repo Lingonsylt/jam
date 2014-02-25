@@ -35,30 +35,13 @@ class Lazorkitten(gamestate.Gamestate):
 
     def onClick(self, dt, packet, client, click):
         client_kitten = self.kittens[client.id]
-
-        left_lazor = Lazor(self.next_lazor_id,
-                      client_kitten.x + 20 *
-                                        math.sin(client_kitten.rot * (math.pi / 180)) +
-                      10 * math.sin((client_kitten.rot - 90) * (math.pi / 180)),
-                      client_kitten.y + 20 *
-                                        math.cos(client_kitten.rot * (math.pi / 180)) +
-                      10 * math.cos((client_kitten.rot - 90) * (math.pi / 180)),
-                      client_kitten.rot)
-        self.next_lazor_id += 1
-        self.lazors[left_lazor.id] = left_lazor
-        packet.addCommand(CreateLazorCommand(left_lazor))
-
-        right_lazor = Lazor(self.next_lazor_id,
-                           client_kitten.x + 20 *
-                                             math.sin(client_kitten.rot * (math.pi / 180)) -
-                           10 * math.sin((client_kitten.rot - 90) * (math.pi / 180)),
-                           client_kitten.y + 20 *
-                                             math.cos(client_kitten.rot * (math.pi / 180)) -
-                           10 * math.cos((client_kitten.rot - 90) * (math.pi / 180)),
-                           client_kitten.rot)
-        self.next_lazor_id += 1
-        self.lazors[right_lazor.id] = right_lazor
-        packet.addCommand(CreateLazorCommand(right_lazor))
+        # Code golf below. Create two lazors, one in each of the kittens eyes, rotated in the kittens direction
+        [(self.lazors.__setitem__(self.next_lazor_id, Lazor(self.next_lazor_id, x, y, client_kitten.rot)),
+          packet.addCommand(CreateLazorCommand(self.lazors[self.next_lazor_id])),
+          self.__setattr__('next_lazor_id', self.next_lazor_id+1)) for x, y in
+         [[(p + 20 * fun(client_kitten.rot * (math.pi / 180)) +
+            10 * fun((client_kitten.rot - 90) * (math.pi / 180)) * sign)
+           for p, fun in ((client_kitten.x, math.sin), (client_kitten.y, math.cos))] for sign in (1, -1)]]
 
 @serializable
 class Kitten(network.NetworkedEntity):
