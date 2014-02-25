@@ -1,8 +1,7 @@
-import json
-
 class Entity(object):
     animations = {}
     def __init__(self, x, y, rot, anim_name='default'):
+        super(Entity, self).__init__()  # Required for multiple-inheritance to call __init__ of all superclasses
         self.x = x
         self.y = y
         self.rot = rot
@@ -22,12 +21,9 @@ class Entity(object):
         for anim in self.animations.values():
             anim.destroy()
 
-    def serialize(self):
-        return json.dumps({'x': self.x, 'y': self.y, 'anim_name': self.anim_name})
-
-    @classmethod
-    def deserialize(cls, data):
-        return cls(**json.loads(data))
-
     def draw(self):
         self.anim.draw(self.x, self.y, self.rot)
+
+    @classmethod
+    def deserialize(cls, dictobj):
+        return cls(**dictobj)

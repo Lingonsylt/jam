@@ -13,7 +13,7 @@ class Client(pyglet.window.Window):
         self.direction_keys = {"up": False, "down": False, "left": False, "right": False}
         self.camera = render.Camera(0, 0)
         self.gamestate = gamestate_cls(camera=self.camera)
-        self.netstate = network.ClientNetworkState(self.gamestate, self.gamestate.servercommandrepo)
+        self.netstate = network.ClientNetworkState(self.gamestate)
 
         if not self.netstate.connect():
             if local_server:

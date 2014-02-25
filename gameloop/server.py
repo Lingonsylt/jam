@@ -3,7 +3,6 @@ from _socket import AF_INET, SOCK_STREAM, SOL_SOCKET, SO_REUSEADDR
 from socket import socket
 import threading
 import time
-import sys
 import network
 import pyglet
 
@@ -29,7 +28,8 @@ class Server:
         self.accept(packet)
         self.read()
         self.gamestate.update(dt, packet)
-        serialized_packet = packet.serialize()
+        self.gamestate._updateNetworkedEntities(dt, packet)
+        serialized_packet = network.Serializer.serialize(packet)
         for client in self.clients.values():
             self.send(client.conn, serialized_packet)
             client.inputstate['presses'] = []
@@ -48,8 +48,9 @@ class Server:
             print "Accepted connection from client", client.id
             conn.setblocking(0)
             client_packet = network.Packet()
+            self.gamestate._onNewClient(client, packet, client_packet)
             self.gamestate.onNewClient(client, packet, client_packet)
-            self.send(conn, client_packet.serialize())
+            self.send(conn, network.Serializer.serialize(client_packet))
 
     def listen(self, block_first_accept=False):
         addr = ("localhost", 6666)
@@ -61,7 +62,7 @@ class Server:
         if block_first_accept:
             packet = network.Packet()
             self.accept(packet)
-            self.send(self.clients[self.clients.keys()[0]].conn, packet.serialize())
+            self.send(self.clients[self.clients.keys()[0]].conn, network.Serializer.serialize(packet))
         self.sock.setblocking(0)
 
         pyglet.clock.schedule_interval(self.update, 1 / 30.0)
@@ -72,7 +73,7 @@ class Server:
             while msg:
                 msg = self.recv(client.conn)
                 if msg is not None:
-                    packet = self.gamestate.clientcommandrepo.deserialize(msg)
+                    packet = network.Serializer.deserialize(msg)
                     for command in packet.commands:
                         command.execute(client.inputstate)
 

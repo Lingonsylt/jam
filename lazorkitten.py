@@ -1,8 +1,8 @@
 # encoding: utf-8
-import json
 import math
 import pyglet
 from gameloop import client, render, network, entity, gamestate
+from gameloop.network import serializable
 
 class Lazorkitten(gamestate.Gamestate):
     width = 800
@@ -13,13 +13,6 @@ class Lazorkitten(gamestate.Gamestate):
         self.kittens = {}
         self.lazors = {}
         self.next_lazor_id = 0
-
-        self.servercommandrepo.addCommand(KittenStateCommand)
-        self.servercommandrepo.addCommand(CreateKittenCommand)
-        self.servercommandrepo.addCommand(CreateLazorCommand)
-        self.servercommandrepo.addCommand(LazorStateCommand)
-        self.servercommandrepo.addCommand(DestroyLazorCommand)
-
         hello_lazorkitten_label = pyglet.text.Label('Hello, lazorkitten!',
                                                     font_name='Times New Roman',
                                                     font_size=36,
@@ -28,17 +21,12 @@ class Lazorkitten(gamestate.Gamestate):
         self.camera.addDrawable(hello_lazorkitten_label)
 
     def onNewClient(self, client, packet, client_packet):
-        for kitten in self.kittens.values():
-            client_packet.addCommand(CreateKittenCommand(kitten))
-
-        kitten = Kitten(client.id, 0, 0, 0)
-        self.kittens[kitten.id] = kitten
-        packet.addCommand(CreateKittenCommand(kitten))
+        kitten = Kitten(client.id, None, 0, 0, 0)
+        network.NetworkedEntity.create(kitten, self, packet)
+        self.kittens[kitten.client_id] = kitten
 
     def update(self, dt, packet):
         for client in self.clients.values():
-            kitten = self.kittens[client.id]
-            kitten.update(dt, self, client.inputstate, packet)
             for click in client.inputstate['clicks']:
                 self.onClick(dt, packet, client, click)
 
@@ -72,10 +60,11 @@ class Lazorkitten(gamestate.Gamestate):
         self.lazors[right_lazor.id] = right_lazor
         packet.addCommand(CreateLazorCommand(right_lazor))
 
-class Kitten(entity.Entity):
+@serializable
+class Kitten(network.NetworkedEntity):
     speed = 500
 
-    def __init__(self, player_id, x, y, rot, anim_name='default'):
+    def __init__(self, client_id, id, x, y, rot, anim_name='default'):
         def createSprite():
             kitten_png = pyglet.resource.image('kitten.png')
             kitten_png.anchor_x = kitten_png.width / 2
@@ -87,9 +76,8 @@ class Kitten(entity.Entity):
         self.animations = {
             'default': render.Animation(createSprite)
         }
-        self.id = player_id
 
-        super(Kitten, self).__init__(x, y, rot, anim_name)
+        super(Kitten, self).__init__(client_id, id, x, y, rot, anim_name)
 
     def __unicode__(self):
         return u"%s(%s, %s, %s, %s, ...)" % (self.__class__.__name__, self.id, self.x, self.y, self.rot)
@@ -106,11 +94,7 @@ class Kitten(entity.Entity):
 
         self.rot = math.atan2(inputstate['mouse']['x'] - self.x, inputstate['mouse']['y'] - self.y) * 180 / math.pi
 
-        packet.addCommand(KittenStateCommand(self))
-
-    def serialize(self):
-        return json.dumps({'player_id': self.id, 'x': self.x, 'y': self.y, 'rot': self.rot, 'anim_name': self.anim_name})
-
+@serializable
 class Lazor(entity.Entity):
     speed = 600
 
@@ -140,52 +124,13 @@ class Lazor(entity.Entity):
             del gamestate.lazors[self.id]
             packet.addCommand(DestroyLazorCommand(self))
 
-    def serialize(self):
-        return json.dumps({'lazor_id': self.id, 'x': self.x, 'y': self.y, 'rot': self.rot, 'anim_name': self.anim_name})
+    def getSerializable(self):
+        return {'lazor_id': self.id, 'x': self.x, 'y': self.y, 'rot': self.rot, 'anim_name': self.anim_name}
 
-class KittenStateCommand(network.ServerCommand):
-    def __init__(self, kitten):
-        self.kitten = kitten
-
-    def execute(self, gamestate):
-        kitten = gamestate.kittens[self.kitten.id]
-        kitten.x = self.kitten.x
-        kitten.y = self.kitten.y
-        kitten.rot = self.kitten.rot
-
-    def serialize(self):
-        return json.dumps({'type': self.__class__.__name__, 'kitten': self.kitten.serialize()})
-
-    @classmethod
-    def deserialize(cls, commands, data):
-        data = json.loads(data)
-        t = data['type']
-        del data['type']
-        data['kitten'] = Kitten.deserialize(data['kitten'])
-        return commands[t](**data)
-
-class CreateKittenCommand(network.ServerCommand):
-    def __init__(self, kitten):
-        self.kitten = kitten
-
-    def execute(self, gamestate):
-        gamestate.kittens[self.kitten.id] = self.kitten
-        gamestate.camera.addDrawable(self.kitten)
-        print "Created kitten with id ", self.kitten.id
-
-    def serialize(self):
-        return json.dumps({'type': self.__class__.__name__, 'kitten': self.kitten.serialize()})
-
-    @classmethod
-    def deserialize(cls, commands, data):
-        data = json.loads(data)
-        t = data['type']
-        del data['type']
-        data['kitten'] = Kitten.deserialize(data['kitten'])
-        return commands[t](**data)
-
+@serializable
 class LazorStateCommand(network.ServerCommand):
     def __init__(self, lazor):
+        super(LazorStateCommand, self).__init__()
         self.lazor = lazor
 
     def execute(self, gamestate):
@@ -194,19 +139,10 @@ class LazorStateCommand(network.ServerCommand):
         lazor.y = self.lazor.y
         lazor.rot = self.lazor.rot
 
-    def serialize(self):
-        return json.dumps({'type': self.__class__.__name__, 'lazor': self.lazor.serialize()})
-
-    @classmethod
-    def deserialize(cls, commands, data):
-        data = json.loads(data)
-        t = data['type']
-        del data['type']
-        data['lazor'] = Lazor.deserialize(data['lazor'])
-        return commands[t](**data)
-
+@serializable
 class CreateLazorCommand(network.ServerCommand):
     def __init__(self, lazor):
+        super(CreateLazorCommand, self).__init__()
         self.lazor = lazor
 
     def execute(self, gamestate):
@@ -214,19 +150,10 @@ class CreateLazorCommand(network.ServerCommand):
         gamestate.camera.addDrawable(self.lazor)
         print "Created lazor with id ", self.lazor.id
 
-    def serialize(self):
-        return json.dumps({'type': self.__class__.__name__, 'lazor': self.lazor.serialize()})
-
-    @classmethod
-    def deserialize(cls, commands, data):
-        data = json.loads(data)
-        t = data['type']
-        del data['type']
-        data['lazor'] = Lazor.deserialize(data['lazor'])
-        return commands[t](**data)
-
+@serializable
 class DestroyLazorCommand(network.ServerCommand):
     def __init__(self, lazor):
+        super(DestroyLazorCommand, self).__init__()
         self.lazor = lazor
 
     def execute(self, gamestate):
@@ -235,17 +162,6 @@ class DestroyLazorCommand(network.ServerCommand):
         gamestate.camera.removeDrawable(lazor)
         lazor.destroy()
         print "Removed lazor with id ", self.lazor.id
-
-    def serialize(self):
-        return json.dumps({'type': self.__class__.__name__, 'lazor': self.lazor.serialize()})
-
-    @classmethod
-    def deserialize(cls, commands, data):
-        data = json.loads(data)
-        t = data['type']
-        del data['type']
-        data['lazor'] = Lazor.deserialize(data['lazor'])
-        return commands[t](**data)
 
 if __name__ == '__main__':
     c = client.Client(Lazorkitten)

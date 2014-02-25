@@ -10,11 +10,23 @@ class Gamestate(object):
     height = 480
 
     def __init__(self, clients=None, inputstate=None, camera=None):
+        self._networked_entities = {}
+        self._networked_entity_id_next = 0
         self.camera = camera if camera else StubCamera()
         self.clients = clients
         self.inputstate = inputstate
-        self.clientcommandrepo = network.ClientCommandRepository()
-        self.servercommandrepo = network.ServerCommandRepository()
+
+    def _updateNetworkedEntities(self, dt, packet):
+        for entity in self._networked_entities.values():
+            entity.update(dt, self, self.clients[entity.client_id].inputstate, packet)
+            packet.addCommand(network.UpdateNetworkedEntityCommand(entity))
+
+    def onNewClient(self, client, packet, client_packet):
+        pass
+
+    def _onNewClient(self, client, packet, client_packet):
+        for entity in self._networked_entities.values():
+            client_packet.addCommand(network.CreateNetworkedEntityCommand(entity))
 
     def update(self, dt, packet):
         pass
