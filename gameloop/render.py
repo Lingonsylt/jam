@@ -56,3 +56,13 @@ class Spritesheet:
         region.anchor_x = region.width / 2
         region.anchor_y = region.height / 2
         return pyglet.sprite.Sprite(region, x, y, batch=batch)
+
+def render(onDraw):
+    window = pyglet.window.Window()
+    def on_draw():
+        glPushMatrix()
+        glTranslatef(int(window.width / 2), int(window.height / 2), 0)
+        onDraw()
+        glPopMatrix()
+    window.on_draw = on_draw
+    pyglet.app.run()
