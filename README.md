@@ -7,19 +7,24 @@ TODO
 Tiled map
 ---
 ```python
+from gameloop.tile import Map
 m = Map(width=10, height=10, tilesize=32)
-tile = Tile(x=0, y=0, passable=True, createSpriteCallback=lambda: pyglet.sprite.Sprite(img))
-m.getIndexAt(10,15) == (0, 0)
-m.setTile(**m.getIndexAt(tile.x, tile.y), tile)
-m.getTileAt(10, 15) == tile
+m.getIndexAt(10, 15) == (0, 0)
+m.getIndexAt(32, 32) == (1, 1)
+tile = Tile()
+m.setTile(2, 2, tile)
+(tile.x, tile.y) == (64, 64)
+m.getTileAt(70, 70) == tile
 ```
 
 Dungeon generator
 ---
 ```python
-g = DungeonGenerator(hall_size=10)
+from gameloop.tile import Map, RandomMapGenerator
 m = Map(width=10, height=10, tilesize=32)
-start_tile, goal_tile = g.generateLevel(m)
+g = RandomMapGenerator(LightGrassTile.getVariations() + DarkGrassTile.getVariations(),
+                           ImpassableGrassTile.getVariations())
+start_tile, end_tile = g.generateLevel(m)
 ```
 
 Map collision detection
